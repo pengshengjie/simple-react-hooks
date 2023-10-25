@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+  <script type="text/babel">
+
+    // 缓存hooks
+    let hooks = [];
+    // hooks下标
+    let hooksIndex = 0;
+    // 更新函数 类似于render
+    let __connetUpdate;
+    // 更新挂载的dom节点
+    let root;
+    // 当前是挂载还是更新
+    let willMount = false;
+
+    // 实现useState
+    const useState = (state) => {
+      if (willMount === false) {
+        // dispach 需要为闭包缓存hooksIndex
+        const dispath = function (hooksIndex) {
+          return function (state) {
+            hooks[hooksIndex][0] = state;
+            // 模拟异步更新
+            setTimeout(() => {
+              __connetUpdate(App());
+            })
+          }
+        }(hooksIndex);
+
+        const value = [state, dispath]
+        hooks[hooksIndex++] = value
+        return value
+      } else {
+        const value = hooks[hooksIndex++]
+        return value
+      }
+    }
+
+    // 将类型d转为数组
+    const toArray = (d) => {
+      return Array.isArray(d) ? d : [d]
+    }
+
+    // 将虚拟dom转为真实dom
+    const toDom = (app) => {
+      let dom;
+      if (app === null || app === undefined) {
+        return
+      } else if (typeof app === 'string' || typeof app === 'number') {
+        return document.createTextNode(String(app))
+      } else if (typeof app.type === 'string') {
+        dom = document.createElement(app.type)
+
+        if (app.props.onClick) {
+          dom.addEventListener('click', app.props.onClick)
+        }
+        const children = app.props.children;
+        toArray(children).forEach((el) => {
+          // 这里采用深度遍历挂载dom
+          const eee = toDom(el)
+          if (typeof dom.appendChild === 'function' && eee) {
+            dom.appendChild(eee)
+          }
+        })
+        return dom
+      }
+    }
+
+
+    const update = function (app) {
+      // 更新之前先清理之前的dom 为了演示useState 不使用双缓存diff
+      Array.from(root.childNodes).forEach(el => root.removeChild(el))
+
+      root.appendChild(toDom(app))
+
+      willMount = true
+      hooksIndex = 0;
+    }
+
+    // 模拟create root API
+    const createRoot = (dom) => {
+      root = dom;
+      return {
+        render(app) {
+          __connetUpdate = update
+          return __connetUpdate(app)
+        }
+      }
+    }
+
+    // 模拟组件 即App() === 虚拟dom
+    const App = () => {
+      const [number, setNumber] = useState(1)
+      const [string, setString] = useState("222")
+
+      return <div>
+        <button onClick={() => setNumber(number + 1)} > + 1</button>
+        <div >{number}</div>
+        <button onClick={() => setString(string + 2)}> add 2</button>
+        <div>{string}</div>
+      </div>
+    }
+
+    createRoot(document.getElementById('root')).render(App())
+
+  </script>
+</body>
+
+</html>
